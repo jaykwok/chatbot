@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>AI聊天机器人管理面板</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        h2 {
+            color: #34495e;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 40px;
+            font-size: 1.5em;
+            font-weight: 400;
+        }
+
+        .summary {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            font-size: 18px;
+            box-shadow: 0 8px 25px rgba(116, 185, 255, 0.3);
+        }
+
+        .summary strong {
+            font-size: 1.2em;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 184, 148, 0.4);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        th {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+            transform: scale(1.01);
+            transition: all 0.2s ease;
+        }
+
+        .active-request {
+            background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%) !important;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .section {
+            margin-top: 40px;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .status-idle {
+            background: #d1f2eb;
+            color: #00b894;
+        }
+
+        .status-processing {
+            background: #ffeaa7;
+            color: #e17055;
+        }
+
+        .config-default {
+            background: linear-gradient(135deg, #81ecec 0%, #74b9ff 100%);
+            color: white;
+        }
+
+        .message-preview {
+            max-width: 300px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .message-preview:hover {
+            background: #e9ecef;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+
+        .message-preview.collapsed {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.9em;
+            color: #636e72;
+        }
+
+        .message-preview.expanded {
+            max-width: none;
+            white-space: normal;
+            font-size: 0.9em;
+            color: #2d3436;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 3px solid #74b9ff;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #74b9ff;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f1f2f6;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+            border: none;
+            font-size: 1em;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .conversation-item {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: #f1f3f4;
+        }
+
+        .conversation-item.user-message {
+            border-left: 3px solid #74b9ff;
+            background: #e3f2fd;
+        }
+
+        .conversation-item.ai-message {
+            border-left: 3px solid #4caf50;
+            background: #e8f5e8;
+        }
+
+        .conversation-user {
+            color: #1976d2;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .conversation-ai {
+            color: #388e3c;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .conversation-text {
+            color: #2d3436;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .expand-hint {
+            font-size: 0.8em;
+            color: #74b9ff;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .system-prompt-preview {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .system-prompt-preview.collapsed {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .system-prompt-preview.expanded {
+            max-width: none;
+            white-space: normal;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #6c5ce7;
+        }
+
+        /* 修复默认配置行展开时的样式 */
+        .config-default .system-prompt-preview.expanded {
+            background: rgba(255, 255, 255, 0.9);
+            color: #2d3436;
+            border-left: 3px solid #fff;
+        }
+    </style>
+    <script>
+        // 保存和恢复当前活跃的标签页
+        function saveActiveTab() {
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+                const tabIndex = Array.from(activeTab.parentNode.children).indexOf(activeTab);
+                localStorage.setItem('activeTabIndex', tabIndex);
+            }
+        }
+
+        function restoreActiveTab() {
+            const savedTabIndex = localStorage.getItem('activeTabIndex');
+            if (savedTabIndex !== null) {
+                const tabs = document.querySelectorAll('.tab');
+                if (tabs[savedTabIndex]) {
+                    tabs[savedTabIndex].click();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function refreshPage() {
+            saveActiveTab();
+            location.reload();
+        }
+
+        function switchTab(tabName) {
+            // 隐藏所有标签内容
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+
+            // 移除所有标签的active类
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // 显示选中的标签内容
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            // 保存当前活跃的标签页
+            saveActiveTab();
+        }
+
+        function toggleMessageExpand(element) {
+            const isExpanded = element.classList.contains('expanded');
+            const hintElement = element.querySelector('.expand-hint');
+
+            if (isExpanded) {
+                // 收起
+                element.classList.remove('expanded');
+                element.classList.add('collapsed');
+                if (hintElement) {
+                    hintElement.textContent = '点击展开完整对话';
+                }
+            } else {
+                // 展开
+                element.classList.remove('collapsed');
+                element.classList.add('expanded');
+                if (hintElement) {
+                    hintElement.textContent = '点击收起对话';
+                }
+            }
+        }
+
+        function toggleSystemPromptExpand(element) {
+            const isExpanded = element.classList.contains('expanded');
+
+            if (isExpanded) {
+                element.classList.remove('expanded');
+                element.classList.add('collapsed');
+            } else {
+                element.classList.remove('collapsed');
+                element.classList.add('expanded');
+            }
+        }
+
+        // 每30秒自动刷新
+        setInterval(refreshPage, 30000);
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            // 尝试恢复上次活跃的标签页，如果没有则默认显示第一个标签
+            if (!restoreActiveTab()) {
+                document.querySelector('.tab').click();
+            }
+
+            // 初始化所有消息预览为折叠状态
+            const messagePreviews = document.querySelectorAll('.message-preview');
+            messagePreviews.forEach(preview => {
+                preview.classList.add('collapsed');
+            });
+
+            // 初始化所有系统提示词预览为折叠状态
+            const systemPrompts = document.querySelectorAll('.system-prompt-preview');
+            systemPrompts.forEach(prompt => {
+                prompt.classList.add('collapsed');
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🤖 AI聊天机器人管理面板</h1>
+
+        <button class="refresh-btn" onclick="refreshPage()">🔄 刷新页面</button>
+
+        <div class="summary">
+            📊 <strong>系统状态概览</strong><br><br>
+            当前活跃会话数: <strong>{{ user_sessions_count }}</strong><br>
+            正在处理的请求数: <strong>{{ active_requests_count }}</strong><br>
+            加载的群组配置数: <strong>{{ group_configs_count }}</strong><br>
+            <small>⏰ 页面每30秒自动刷新 | 最后更新: {{ current_time }}</small>
+        </div>
+
+        <div class="tabs">
+            <button class="tab" onclick="switchTab('sessions-tab')">📱 活跃会话</button>
+            <button class="tab" onclick="switchTab('requests-tab')">⚡ 处理中请求</button>
+            <button class="tab" onclick="switchTab('config-tab')">⚙️ 群组配置</button>
+        </div>
+
+        <!-- 活跃会话标签 -->
+        <div id="sessions-tab" class="tab-content">
+            <div class="section">
+                <h2>📱 活跃会话 ({{ user_sessions_count }})</h2>
+                {% if sessions_info %}
+                <table>
+                    <tr>
+                        <th>用户ID</th>
+                        <th>消息数量</th>
+                        <th>最后活跃时间</th>
+                        <th>距离上次活跃(秒)</th>
+                        <th>状态</th>
+                        <th>最近对话预览</th>
+                    </tr>
+                    {% for phone, info in sessions_info.items() %}
+                    <tr class="{{ 'active-request' if info.has_active_request else '' }}">
+                        <td><strong>{{ phone }}</strong></td>
+                        <td>{{ info.message_count }}</td>
+                        <td>{{ info.last_active }}</td>
+                        <td>{{ info.active_duration }}</td>
+                        <td>
+                            {% if info.has_active_request %}
+                            <span class="status-badge status-processing">🔄 处理中</span>
+                            {% else %}
+                            <span class="status-badge status-idle">💤 空闲</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if info.recent_messages %}
+                            <div class="message-preview" onclick="toggleMessageExpand(this)">
+                                <div class="conversation-content">
+                                    {% for msg in info.recent_messages[-4:] %}
+                                    {% if loop.index0 % 2 == 0 %}
+                                    <div class="conversation-item user-message">
+                                        <div class="conversation-user">👤 用户:</div>
+                                        <div class="conversation-text">{{ msg.content }}</div>
+                                    </div>
+                                    {% else %}
+                                    <div class="conversation-item ai-message">
+                                        <div class="conversation-ai">🤖 机器人:</div>
+                                        <div class="conversation-text">{{ msg.content }}</div>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <div class="expand-hint">点击展开完整对话</div>
+                            </div>
+                            {% else %}
+                            <em>无对话记录</em>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <p style="text-align: center; color: #636e72; padding: 40px;">
+                    📭 当前没有活跃的会话
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 处理中请求标签 -->
+        <div id="requests-tab" class="tab-content">
+            <div class="section">
+                <h2>⚡ 正在处理的请求 ({{ active_requests_count }})</h2>
+                {% if active_req_info %}
+                <table>
+                    <tr>
+                        <th>用户ID</th>
+                        <th>群组ID</th>
+                        <th>开始时间</th>
+                        <th>已处理时间(秒)</th>
+                        <th>状态</th>
+                    </tr>
+                    {% for phone, info in active_req_info.items() %}
+                    <tr class="active-request">
+                        <td><strong>{{ phone }}</strong></td>
+                        <td>{{ info.group_id }}</td>
+                        <td>{{ info.start_time }}</td>
+                        <td><strong>{{ info.duration }}</strong></td>
+                        <td><span class="status-badge status-processing">🔄 {{ info.status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <p style="text-align: center; color: #636e72; padding: 40px;">
+                    ✅ 当前没有正在处理的请求
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 群组配置标签 -->
+        <div id="config-tab" class="tab-content">
+            <div class="section">
+                <h2>⚙️ 群组配置</h2>
+                <table>
+                    <tr>
+                        <th>群组ID</th>
+                        <th>使用知识库</th>
+                        <th>知识库目录</th>
+                        <th>常规模型</th>
+                        <th>推理模型</th>
+                        <th>系统提示词</th>
+                    </tr>
+
+                    <!-- 默认配置 -->
+                    <tr class="config-default">
+                        <td><strong>🔧 默认配置</strong></td>
+                        <td>
+                            {% if DEFAULT_GROUP_CONFIG.use_knowledge_base %}
+                            <span style="color: #00b894;">✅ 是</span>
+                            {% else %}
+                            <span style="color: #e17055;">❌ 否</span>
+                            {% endif %}
+                        </td>
+                        <td><em>🈚️</em></td>
+                        <td><code>{{ DEFAULT_GROUP_CONFIG.model }}</code></td>
+                        <td><code>{{ DEFAULT_GROUP_CONFIG.reasoning_model }}</code></td>
+                        <td class="system-prompt-preview" onclick="toggleSystemPromptExpand(this)">
+                            {{ DEFAULT_GROUP_CONFIG.system_prompt }}
+                        </td>
+                    </tr>
+
+                    <!-- 群组配置 -->
+                    {% for group_id, config in GROUP_CONFIGS.items() %}
+                    <tr>
+                        <td><strong>👥 {{ group_id }}</strong></td>
+                        <td>
+                            {% if config.get('use_knowledge_base', true) %}
+                            <span style="color: #00b894;">✅ 是</span>
+                            {% else %}
+                            <span style="color: #e17055;">❌ 否</span>
+                            {% endif %}
+                        </td>
+                        <td><code>{{ config.get('knowledge_base_dir', '🈚️') }}</code></td>
+                        <td><code>{{ config.get('model', 'qwen-max-latest') }}</code></td>
+                        <td><code>{{ config.get('reasoning_model', 'deepseek-r1') }}</code></td>
+                        <td class="system-prompt-preview" onclick="toggleSystemPromptExpand(this)">
+                            {{ config.get('system_prompt', DEFAULT_GROUP_CONFIG.system_prompt) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not GROUP_CONFIGS %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #636e72; padding: 40px;">
+                            📝 除默认配置外，暂无自定义群组配置
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🤖 AI聊天机器人管理面板 | Made with 四川电信</p>
+        </div>
+    </div>
+</body>
+
+</html>
