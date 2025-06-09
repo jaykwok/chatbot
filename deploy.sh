@@ -69,7 +69,7 @@ if docker ps | grep -q im-chatbot; then
     # 显示最近日志
     echo ""
     echo "📝 最近日志:"
-    docker logs --tail 20 im-chatbot
+    docker logs --tail 50 im-chatbot
 else
     echo "❌ 服务启动失败"
     echo "📝 错误日志:"
