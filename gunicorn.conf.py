@@ -1,5 +1,3 @@
-# gunicorn.conf.py for chatbot
-
 import multiprocessing
 import os
 
