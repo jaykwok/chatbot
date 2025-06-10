@@ -3,3 +3,4 @@ requests
 openai
 python-dotenv
 gunicorn
+gevent

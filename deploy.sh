@@ -1,87 +1,126 @@
 #!/bin/bash
 
-# deploy.sh - AI聊天机器人部署脚本
+# deploy.sh - AI聊天机器人部署脚本 (升级版)
 
 set -e
 
-echo "🚀 开始部署AI聊天机器人..."
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 打印带颜色的消息
+print_status() { echo -e "${BLUE}🚀 $1${NC}"; }
+print_success() { echo -e "${GREEN}✅ $1${NC}"; }
+print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+print_error() { echo -e "${RED}❌ $1${NC}"; }
+
+print_status "开始部署AI聊天机器人..."
 
 # 检查必要文件
-echo "📋 检查必要文件..."
-required_files=(".env" "group_configs.json")
+print_status "检查必要文件..."
+required_files=(".env" "group_configs.json" "gunicorn.conf.py" "wsgi.py")
 for file in "${required_files[@]}"; do
     if [ ! -f "$file" ]; then
-        echo "❌ 缺少必要文件: $file"
+        print_error "缺少必要文件: $file"
         exit 1
     fi
 done
+print_success "必要文件检查通过"
 
 # 创建必要目录和文件
-echo "📁 创建必要目录和文件..."
+print_status "创建必要目录和文件..."
 mkdir -p knowledge_base logs static templates
 
-# 预创建日志文件并设置权限
-touch logs/chatbot.log
-chmod 666 logs/chatbot.log
-
-# 确保目录权限正确
-chmod 755 knowledge_base logs
-
-echo "✅ 目录和文件创建完成"
+# 设置目录和文件权限
+# 使用 chmod 777 是一个简单粗暴但有效的方法，确保容器内的appuser(1001)有权限
+chmod 777 knowledge_base logs
+print_success "目录和文件创建完成"
 
 # 停止并删除现有容器
-echo "🛑 停止现有容器..."
-if docker ps -a | grep -q chatbot; then
+print_status "停止现有容器..."
+if docker ps -a --format "table {{.Names}}" | grep -q "^chatbot$"; then
     docker stop chatbot || true
     docker rm chatbot || true
-    echo "✅ 现有容器已清理"
+    print_success "现有容器已清理"
+else
+    print_success "没有发现现有容器"
 fi
 
 # 构建新镜像
-echo "🔨 构建Docker镜像..."
-docker build -t chatbot .
+print_status "构建Docker镜像..."
+if docker build -t chatbot .; then
+    print_success "镜像构建成功"
+else
+    print_error "镜像构建失败"
+    exit 1
+fi
 
 # 运行新容器
-echo "🚀 启动新容器..."
-docker run -d \
+print_status "启动新容器..."
+if docker run -d \
   -p 1011:1011 \
-  -v $(pwd)/knowledge_base:/app/knowledge_base \
-  -v $(pwd)/logs:/app/logs \
-  -v $(pwd)/group_configs.json:/app/group_configs.json \
-  --env-file .env \
+  -v "$(pwd)/.env:/app/.env:ro" \
+  -v "$(pwd)/group_configs.json:/app/group_configs.json:ro" \
+  -v "$(pwd)/knowledge_base:/app/knowledge_base" \
+  -v "$(pwd)/logs:/app/logs" \
   --restart unless-stopped \
   --name chatbot \
-  chatbot
-
-echo "✅ 容器启动完成"
+  --memory="512m" \
+  --cpus="1.0" \
+  chatbot; then
+    print_success "容器启动成功"
+else
+    print_error "容器启动失败"
+    exit 1
+fi
 
 # 等待服务启动
-echo "⏳ 等待服务启动..."
-sleep 5
+print_status "等待服务启动..."
+sleep 8
 
 # 检查容器状态
-if docker ps | grep -q chatbot; then
-    echo "✅ 服务启动成功"
-    echo "🌐 管理页面: http://localhost:1011/sessions"
-    echo "📊 API端点: http://localhost:1011/webhook"
-    echo "📝 日志文件: $(pwd)/logs/chatbot.log"
-    
-    # 显示最近日志
+if docker ps --format "table {{.Names}}" | grep -q "^chatbot$"; then
+    print_success "服务启动成功"
+
+    SERVER_IP=$(hostname -I | awk '{print $1}' 2>/dev/null || echo "localhost")
+
     echo ""
-    echo "📝 最近日志:"
-    docker logs --tail 50 chatbot
+    echo "🎉 部署完成！"
+    echo ""
+    echo "📋 服务信息:"
+    echo "  🤖 Webhook端点: http://${SERVER_IP}:1011/webhook"
+    echo "  🔐 管理页面: http://${SERVER_IP}:1011/sessions (需要认证)"
+    echo "  📝 配置文件: $(pwd)/.env, $(pwd)/group_configs.json"
+    echo "  📚 知识库: $(pwd)/knowledge_base"
+    echo "  📝 日志目录: $(pwd)/logs"
+    echo ""
+    echo "📊 容器资源限制:"
+    echo "  💾 内存限制: 512MB"
+    echo "  🖥️  CPU限制: 1.0核"
+    echo ""
+    print_status "最近日志:"
+    docker logs --tail 20 chatbot
+
+    echo ""
+    echo "🛠️  常用命令:"
+    echo "  📝 查看实时日志: docker logs -f chatbot"
+    echo "  🔄 重启服务: docker restart chatbot"
+    echo "  ⏹️  停止服务: docker stop chatbot"
+    echo "  🔍 进入容器: docker exec -it chatbot /bin/bash"
+    echo "  📊 容器状态: docker stats chatbot"
 else
-    echo "❌ 服务启动失败"
-    echo "📝 错误日志:"
+    print_error "服务启动失败"
+    echo ""
+    print_status "错误日志:"
     docker logs chatbot
+    echo ""
+    print_status "容器状态:"
+    docker ps -a --filter name=chatbot
     exit 1
 fi
 
 echo ""
-echo "🎉 部署完成！"
-echo ""
-echo "常用命令:"
-echo "  查看日志: docker logs -f chatbot"
-echo "  重启服务: docker restart chatbot"
-echo "  停止服务: docker stop chatbot"
-echo "  进入容器: docker exec -it chatbot /bin/bash"
+print_success "AI聊天机器人部署完成！"

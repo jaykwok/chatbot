@@ -1,5 +1,5 @@
 import time
-import threading
+import gevent
 from flask import Flask, request, jsonify, render_template
 from utils import setup_logging, get_client_ip
 from session_manager import (
@@ -180,10 +180,13 @@ def webhook():
 
         # 处理请求
         if use_reasoning_model:
-            threading.Thread(
-                target=process_reasoning_request,
-                args=(processing_content, phone, group_id, callback_url),
-            ).start()
+            gevent.spawn(
+                process_reasoning_request,
+                processing_content,
+                phone,
+                group_id,
+                callback_url,
+            )
             return jsonify({"status": "success"})
         else:
             group_config = GROUP_CONFIGS.get(group_id, DEFAULT_GROUP_CONFIG)
