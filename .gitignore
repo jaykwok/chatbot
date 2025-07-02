@@ -1,5 +1,4 @@
 ﻿__pycache__/
 knowledge_base/
 logs/*.log
-group_configs.json
 .env
