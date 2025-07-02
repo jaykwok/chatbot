@@ -18,7 +18,7 @@ from knowledge_base import load_knowledge_base
 from auth import requires_auth
 from config import GROUP_CONFIGS, DEFAULT_GROUP_CONFIG, MAX_WAIT_TIME
 
-# 设置日志
+# 初始化日志记录
 setup_logging()
 import logging
 

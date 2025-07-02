@@ -1,4 +1,3 @@
-import time
 import logging
 from flask import request
 

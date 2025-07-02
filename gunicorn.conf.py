@@ -1,7 +1,4 @@
-import multiprocessing
-import os
-
-# --- 服务器套接字 ---
+# --- 服务器Socket配置 ---
 # 绑定到所有网络接口的1011端口
 bind = "0.0.0.0:1011"
 # 等待连接的队列大小
