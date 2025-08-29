@@ -1,4 +1,5 @@
 ﻿__pycache__/
 knowledge_base/
+.vscode/
 logs/*.log
 .env

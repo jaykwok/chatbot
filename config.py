@@ -15,7 +15,7 @@ APP_PASSWORD = os.getenv("APP_PASSWORD")
 DEFAULT_GROUP_CONFIG = {
     "use_knowledge_base": False,
     "model": "qwen-plus-latest",
-    "reasoning_model": "qwen3-235b-a22b",
+    "reasoning_model": "qwen3-235b-a22b-thinking-2507",
     "system_prompt": "请简洁明了地回答问题，且不要使用Markdown等格式（如*、**等符号）来强调文本。",
 }
 
