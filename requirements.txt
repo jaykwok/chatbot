@@ -1,4 +1,5 @@
 flask
+werkzeug
 requests
 openai
 python-dotenv
