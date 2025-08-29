@@ -64,8 +64,8 @@ def process_reasoning_request(content, phone, group_id, callback_url):
         if is_new_session:
             welcome_guide = (
                 "欢迎使用AI助手！以下是基本操作说明：\n\n"
-                "- 输入「重置」或「reset」: 清除对话历史，开始新对话\n"
-                "- 输入「思考:问题内容」: 启用思考模式，显示AI的思考过程\n\n"
+                "- 输入「重置」或「reset」: 清除历史对话记录，开始新对话\n"
+                "- 对话前面添加「思考:」: 启动推理模式，例如“思考:9.9和9.11哪个大”\n\n"
                 "有任何问题，随时向我提问！"
             )
             send_message_to_im(welcome_guide, group_id, phone, callback_url)
