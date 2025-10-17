@@ -3,6 +3,7 @@ import logging
 from openai import OpenAI
 from config import (
     DASHSCOPE_API_KEY,
+    BASE_URL,
     GROUP_CONFIGS,
     DEFAULT_GROUP_CONFIG,
     SESSION_TIMEOUT,
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 # 初始化OpenAI客户端
 client = OpenAI(
     api_key=DASHSCOPE_API_KEY,
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    base_url=BASE_URL,
 )
 
 

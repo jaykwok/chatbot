@@ -10,6 +10,11 @@ load_dotenv()
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 APP_USERNAME = os.getenv("APP_USERNAME")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
+# 阿里云大模型国内版API地址
+# BASE_URL='https://dashscope.aliyuncs.com/compatible-mode/v1'
+# 阿里云大模型国际版API地址
+BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+
 
 # 默认群组配置
 DEFAULT_GROUP_CONFIG = {
