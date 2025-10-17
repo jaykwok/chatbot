@@ -27,7 +27,7 @@ group_configs.json为群组配置文件，格式为json格式：
         "system_prompt": "你是客服助手，请简洁专业地回答问题。不要使用Markdown等格式（如*、**等符号）来展示强调文本，聊天软件不支持markdown等文本格式。"
     },
     "1940291788795777025": {
-        "model": "deepseek-v3.2-exp",
+        "model": "qwen-plus-latest",
         "reasoning_model": "deepseek-v3.2-exp",
         "system_prompt": "你是聊天机器人，可以使用emoji表情或者颜文字符号等，但在对话过程中不要使用Markdown等格式（如*、**等符号）来展示强调文本，聊天软件不支持markdown等文本格式。"
     }
