@@ -13,16 +13,14 @@ APP_PASSWORD = os.getenv("APP_PASSWORD")
 
 # 默认群组配置
 DEFAULT_GROUP_CONFIG = {
-    "use_knowledge_base": False,
     "model": "qwen-plus-latest",
-    "reasoning_model": "qwen3-235b-a22b-thinking-2507",
+    "reasoning_model": "qwen-plus-latest",
     "system_prompt": "请简洁明了地回答问题，且不要使用Markdown等格式（如*、**等符号）来强调文本。",
 }
 
 # 超时设置
 SESSION_TIMEOUT = 1800  # 30分钟
-API_TIMEOUT = 90  # 90秒
-MAX_WAIT_TIME = 300  # 5分钟
+MAX_WAIT_TIME = 600  # 10分钟
 
 
 def load_group_configs():

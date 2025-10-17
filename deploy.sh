@@ -32,11 +32,11 @@ print_success "必要文件检查通过"
 
 # 创建必要目录和文件
 print_status "创建必要目录和文件..."
-mkdir -p knowledge_base logs static templates
+mkdir -p logs static templates
 
 # 设置目录和文件权限
 # 使用 chmod 777 是一个简单粗暴但有效的方法，确保容器内的appuser(1001)有权限
-chmod 777 knowledge_base logs
+chmod 777 logs
 print_success "目录和文件创建完成"
 
 # 停止并删除现有容器
@@ -64,7 +64,6 @@ if docker run -d \
   -p 1011:1011 \
   -v "$(pwd)/.env:/app/.env:ro" \
   -v "$(pwd)/group_configs.json:/app/group_configs.json:ro" \
-  -v "$(pwd)/knowledge_base:/app/knowledge_base" \
   -v "$(pwd)/logs:/app/logs" \
   --restart unless-stopped \
   --name chatbot \
@@ -94,7 +93,6 @@ if docker ps --format "table {{.Names}}" | grep -q "^chatbot$"; then
     echo "  🤖 Webhook端点: http://${SERVER_IP}:1011/webhook"
     echo "  🔐 管理页面: http://${SERVER_IP}:1011/sessions (需要认证)"
     echo "  📝 配置文件: $(pwd)/.env, $(pwd)/group_configs.json"
-    echo "  📚 知识库: $(pwd)/knowledge_base"
     echo "  📝 日志目录: $(pwd)/logs"
     echo ""
     echo "📊 容器资源限制:"

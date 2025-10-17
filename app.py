@@ -3,7 +3,7 @@ import gevent
 from flask import Flask, request, jsonify, render_template
 from werkzeug.exceptions import BadRequest, Forbidden, TooManyRequests
 from contextlib import contextmanager
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple
 
 from utils import setup_logging, get_client_ip
 from session_manager import (
@@ -18,7 +18,6 @@ from session_manager import (
 )
 from ai_service import get_ai_response
 from im_service import send_message_to_im
-from knowledge_base import load_knowledge_base
 from auth import requires_auth
 from config import GROUP_CONFIGS, DEFAULT_GROUP_CONFIG, MAX_WAIT_TIME
 
@@ -136,14 +135,6 @@ def parse_content(content: str) -> Tuple[bool, str]:
     return False, content
 
 
-def get_group_knowledge_base(group_id: str) -> Optional[Any]:
-    """获取群组知识库"""
-    group_config = GROUP_CONFIGS.get(group_id, DEFAULT_GROUP_CONFIG)
-    if group_config.get("use_knowledge_base", True):
-        return load_knowledge_base(group_id)
-    return None
-
-
 def send_welcome_if_needed(
     is_new_session: bool, group_id: str, phone: str, callback_url: str
 ) -> None:
@@ -199,9 +190,6 @@ def process_reasoning_request(
                 "callback_url": callback_url,
             }
 
-            # 获取知识库
-            knowledge_base = get_group_knowledge_base(group_id)
-
             # 发送进度消息
             send_message_to_im(
                 "正在思考中，这可能需要一些时间...", group_id, phone, callback_url
@@ -209,7 +197,7 @@ def process_reasoning_request(
 
             # 获取AI回复
             ai_response, is_new_session = get_ai_response(
-                content, phone, group_id, knowledge_base, use_reasoning_model=True
+                content, phone, group_id, use_reasoning_model=True
             )
 
             # 发送回复和欢迎消息
@@ -239,12 +227,9 @@ def process_normal_request(
 ) -> None:
     """处理普通请求"""
     with request_context(phone, "普通请求处理", client_ip):
-        # 获取知识库
-        knowledge_base = get_group_knowledge_base(group_id)
-
         # 获取AI回复
         ai_response, is_new_session = get_ai_response(
-            content, phone, group_id, knowledge_base, use_reasoning_model=False
+            content, phone, group_id, use_reasoning_model=False
         )
 
         # 发送回复和欢迎消息

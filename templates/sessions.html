@@ -522,25 +522,15 @@
                 <h2>⚙️ 群组配置</h2>
                 <table>
                     <tr>
+                    <tr>
                         <th>群组ID</th>
-                        <th>使用知识库</th>
-                        <th>知识库目录</th>
                         <th>常规模型</th>
                         <th>推理模型</th>
                         <th>系统提示词</th>
                     </tr>
-
                     <!-- 默认配置 -->
                     <tr class="config-default">
                         <td><strong>🔧 默认配置</strong></td>
-                        <td>
-                            {% if DEFAULT_GROUP_CONFIG.use_knowledge_base %}
-                            <span style="color: #00b894;">✅ 是</span>
-                            {% else %}
-                            <span style="color: #e17055;">❌ 否</span>
-                            {% endif %}
-                        </td>
-                        <td><em>🈚️</em></td>
                         <td><code>{{ DEFAULT_GROUP_CONFIG.model }}</code></td>
                         <td><code>{{ DEFAULT_GROUP_CONFIG.reasoning_model }}</code></td>
                         <td class="system-prompt-preview" onclick="toggleSystemPromptExpand(this)">
@@ -552,16 +542,8 @@
                     {% for group_id, config in GROUP_CONFIGS.items() %}
                     <tr>
                         <td><strong>👥 {{ group_id }}</strong></td>
-                        <td>
-                            {% if config.get('use_knowledge_base', true) %}
-                            <span style="color: #00b894;">✅ 是</span>
-                            {% else %}
-                            <span style="color: #e17055;">❌ 否</span>
-                            {% endif %}
-                        </td>
-                        <td><code>{{ config.get('knowledge_base_dir', '🈚️') }}</code></td>
-                        <td><code>{{ config.get('model', 'qwen-max-latest') }}</code></td>
-                        <td><code>{{ config.get('reasoning_model', 'deepseek-r1') }}</code></td>
+                        <td><code>{{ config.get('model', 'qwen-plus-latest') }}</code></td>
+                        <td><code>{{ config.get('reasoning_model', 'qwen-plus-latest') }}</code></td>
                         <td class="system-prompt-preview" onclick="toggleSystemPromptExpand(this)">
                             {{ config.get('system_prompt', DEFAULT_GROUP_CONFIG.system_prompt) }}
                         </td>

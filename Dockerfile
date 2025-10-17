@@ -39,7 +39,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --chown=appuser:appgroup . .
 
 # 创建应用需要的目录并设置权限
-RUN mkdir -p /app/knowledge_base /app/logs && \
+RUN mkdir -p /app/logs && \
     chown -R appuser:appgroup /app
 
 # 切换到非 root 用户

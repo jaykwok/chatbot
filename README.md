@@ -3,7 +3,7 @@
 
 必选项：.env文件
 
-可选项：group_configs.json文件以及知识库文件夹，里面以文本文件的形式进行呈现（后期直接使用智能体了，知识库应该会删除）
+可选项：group_configs.json文件
 
 
 
@@ -21,17 +21,14 @@ group_configs.json为群组配置文件，格式为json格式：
 
 ```json
 {
-    "group_id1": {
-        "use_knowledge_base": true,
-        "knowledge_base_dir": "knowledge_base/customer_service",
+    "群组ID配置示例": {
         "model": "qwen-plus-latest",
-        "reasoning_model": "qwen3-235b-a22b",
+        "reasoning_model": "qwen-plus-latest",
         "system_prompt": "你是客服助手，请简洁专业地回答问题。不要使用Markdown等格式（如*、**等符号）来展示强调文本，聊天软件不支持markdown等文本格式。"
     },
-    "group_id2": {
-        "use_knowledge_base": false,
-        "model": "qwen-plus-latest",
-        "reasoning_model": "qwen3-235b-a22b",
+    "1940291788795777025": {
+        "model": "deepseek-v3.2-exp",
+        "reasoning_model": "deepseek-v3.2-exp",
         "system_prompt": "你是聊天机器人，可以使用emoji表情或者颜文字符号等，但在对话过程中不要使用Markdown等格式（如*、**等符号）来展示强调文本，聊天软件不支持markdown等文本格式。"
     }
 }

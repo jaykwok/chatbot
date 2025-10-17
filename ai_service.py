@@ -5,7 +5,7 @@ from config import (
     DASHSCOPE_API_KEY,
     GROUP_CONFIGS,
     DEFAULT_GROUP_CONFIG,
-    API_TIMEOUT,
+    SESSION_TIMEOUT,
     MAX_WAIT_TIME,
 )
 from session_manager import user_sessions
@@ -19,9 +19,7 @@ client = OpenAI(
 )
 
 
-def get_ai_response(
-    message, phone, group_id, knowledge_base=None, use_reasoning_model=False
-):
+def get_ai_response(message, phone, group_id, use_reasoning_model=False):
     """使用DashScope API获取回复"""
     try:
         group_config = GROUP_CONFIGS.get(group_id, DEFAULT_GROUP_CONFIG)
@@ -30,7 +28,7 @@ def get_ai_response(
         # 会话管理
         is_new_session = False
         if phone not in user_sessions or (
-            current_time - user_sessions[phone]["last_active"] > 1800  # SESSION_TIMEOUT
+            current_time - user_sessions[phone]["last_active"] > SESSION_TIMEOUT
         ):
             user_sessions[phone] = {"messages": [], "last_active": current_time}
             logger.info(f"为用户 {phone} 创建新会话，群组: {group_id}")
@@ -46,20 +44,6 @@ def get_ai_response(
 
         if not use_reasoning_model:
             messages.append({"role": "system", "content": instruction})
-
-        # 添加知识库内容
-        if (
-            knowledge_base
-            and len(knowledge_base) > 0
-            and len(user_sessions[phone]["messages"]) == 0
-        ):
-            knowledge_content = "\n\n".join(knowledge_base)
-            messages.append(
-                {
-                    "role": "user",
-                    "content": f"以下是你可以参考的知识库内容，如果问题与此相关，请基于此回答：\n\n{knowledge_content}",
-                }
-            )
 
         # 添加历史消息
         messages.extend(user_sessions[phone]["messages"][-20:])
@@ -105,9 +89,7 @@ def _get_reasoning_response(model, messages):
     completion = client.chat.completions.create(
         model=model,
         messages=messages,
-        max_tokens=4000,
         stream=True,
-        timeout=API_TIMEOUT,
         extra_body={"enable_thinking": True},
     )
 
@@ -141,8 +123,6 @@ def _get_normal_response(model, messages):
     completion = client.chat.completions.create(
         model=model,
         messages=messages,
-        max_tokens=4000,
-        timeout=API_TIMEOUT,
         extra_body={"enable_thinking": False},
     )
     return completion.choices[0].message.content
