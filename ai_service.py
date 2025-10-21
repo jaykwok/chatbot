@@ -21,7 +21,7 @@ client = OpenAI(
 
 
 def get_ai_response(message, phone, group_id, use_reasoning_model=False):
-    """使用DashScope API获取回复"""
+    """调用AI模型生成对话回复"""
     try:
         group_config = GROUP_CONFIGS.get(group_id, DEFAULT_GROUP_CONFIG)
         current_time = time.time()
@@ -86,7 +86,7 @@ def get_ai_response(message, phone, group_id, use_reasoning_model=False):
 
 
 def _get_reasoning_response(model, messages):
-    """获取推理模式回复"""
+    """处理需要深度思考的问题"""
     completion = client.chat.completions.create(
         model=model,
         messages=messages,

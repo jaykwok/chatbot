@@ -44,15 +44,15 @@ RATE_LIMIT_EXPIRE_TIME = 600
 # 欢迎消息模板
 WELCOME_GUIDE = """欢迎使用AI助手！以下是基本操作说明：
 
-- 输入「重置」或「reset」: 清除历史对话记录，开始新对话
-- 对话前面添加「思考:」: 启用推理模型，例如"思考:9.9和9.11哪个大"
+- @机器人后，输入「重置」或「reset」: 清除历史对话记录，开始新对话
+- @机器人后，对话前面添加「思考:」: 启用推理模型，例如"思考:9.9和9.11哪个大"
 
 有任何问题，随时向我提问！"""
 
 
 @contextmanager
 def request_context(phone: str, operation: str, client_ip: str = None):
-    """请求上下文管理器，用于统一的日志记录和错误处理"""
+    """统一管理请求的日志记录和异常处理"""
     if client_ip is None:
         try:
             client_ip = get_client_ip()
@@ -111,7 +111,7 @@ def validate_webhook_data(data: Dict[str, Any]) -> Tuple[str, str, str, str]:
 
 
 def check_user_permissions(phone: str) -> None:
-    """检查用户权限和限制"""
+    """验证用户请求频率和活跃状态"""
     # 频率限制检查
     is_limited, time_diff = is_user_rate_limited(phone)
     if is_limited:
@@ -126,7 +126,7 @@ def check_user_permissions(phone: str) -> None:
 
 
 def parse_content(content: str) -> Tuple[bool, str]:
-    """解析消息内容，判断是否为思考模式并提取实际内容"""
+    """识别思考模式前缀并提取问题内容"""
     use_reasoning = any(content.startswith(prefix) for prefix in REASONING_PREFIXES)
     if use_reasoning:
         # 去掉前缀

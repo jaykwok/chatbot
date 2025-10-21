@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# deploy.sh - AI聊天机器人部署脚本 (升级版)
+# 聊天机器人部署脚本
 
 set -e
 
@@ -34,8 +34,7 @@ print_success "必要文件检查通过"
 print_status "创建必要目录和文件..."
 mkdir -p logs static templates
 
-# 设置目录和文件权限
-# 使用 chmod 777 是一个简单粗暴但有效的方法，确保容器内的appuser(1001)有权限
+# 设置日志目录权限
 chmod 777 logs
 print_success "目录和文件创建完成"
 

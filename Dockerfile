@@ -1,10 +1,9 @@
-# ---- Stage 1: Builder ----
-# 使用一个完整的 Python 镜像来构建依赖
+# 构建阶段
 FROM python:3.9-slim AS builder
 
 WORKDIR /app
 
-# 安装编译所需的依赖 (以防某些库需要)
+# 安装编译所需的依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*

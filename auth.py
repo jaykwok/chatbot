@@ -3,7 +3,7 @@ from flask import request, Response
 from config import APP_USERNAME, APP_PASSWORD
 
 
-# 认证模块，用于验证用户是否有权限访问API
+# API访问权限验证
 def check_auth(username, password):
     return username == APP_USERNAME and password == APP_PASSWORD
 
