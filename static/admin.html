@@ -387,9 +387,7 @@ async function fetchData() {
     btn.classList.add('loading');
 
     try {
-        const res = await fetch('/admin', {
-            headers: { 'Accept': 'application/json' }
-        });
+        const res = await fetch('/admin/api');
         if (res.status === 401) {
             document.getElementById('sessions-body').innerHTML =
                 '<div class="empty-state"><p>认证失败，请刷新页面重新登录</p></div>';

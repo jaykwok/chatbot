@@ -110,17 +110,22 @@ fi
 # ---- 等待健康检查 ----
 
 print_status "等待服务就绪..."
-# Dockerfile HEALTHCHECK 有 10 秒 start-period，先等待再轮询
-sleep 10
-for i in $(seq 1 10); do
-    if docker inspect --format='{{.State.Health.Status}}' chatbot 2>/dev/null | grep -q "healthy"; then
+# HEALTHCHECK: start-period=10s, interval=30s, retries=3
+# 第一次有效检查在 ~40s，最多等 90s 覆盖所有 retries
+for i in $(seq 1 18); do
+    status=$(docker inspect --format='{{.State.Health.Status}}' chatbot 2>/dev/null || echo "unknown")
+    if [ "$status" = "healthy" ]; then
         print_success "健康检查通过"
         break
     fi
-    if [ $i -eq 10 ]; then
-        print_warning "健康检查超时，请检查日志: docker logs chatbot"
+    if [ "$status" = "unhealthy" ]; then
+        print_error "健康检查失败，请检查日志: docker logs chatbot"
+        break
     fi
-    sleep 2
+    if [ $i -eq 18 ]; then
+        print_warning "健康检查超时（90s），请检查日志: docker logs chatbot"
+    fi
+    sleep 5
 done
 
 # ---- 输出信息 ----

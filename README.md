@@ -89,7 +89,7 @@ AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 脚本执行流程：
 
 1. 检查 Docker 权限、必要文件、API Key 配置
-2. 创建 `logs/`、`data/`、`static/` 目录并设置权限
+2. 创建 `logs/`、`data/` 目录并设置权限
 3. 停止并清理旧容器 (如有)
 4. 构建 Docker 镜像，清理悬空镜像回收磁盘
 5. 启动容器 (只读文件系统、最小权限)
@@ -150,6 +150,7 @@ docker exec -it chatbot bash    # 进入容器 (只读，仅供排查)
 |------|------|------|------|
 | `/webhook` | POST | 无 | IM 平台 Webhook 回调入口 |
 | `/admin` | GET | Basic Auth | Web 管理页面 |
+| `/admin/api` | GET | Basic Auth | ��理页面数据接口 (JSON) |
 
 ### Webhook 请求格式
 

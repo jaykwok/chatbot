@@ -165,39 +165,42 @@ async def webhook(request: Request):
 
 
 @app.get("/admin")
-async def admin(request: Request, username: str = Depends(verify_auth)):
-    """管理页面：HTML 页面 + JSON 数据接口（通过 Accept 头区分）"""
-    if "application/json" in request.headers.get("accept", ""):
-        all_sessions = await get_all_sessions()
-        current_time = time.time()
+async def admin(username: str = Depends(verify_auth)):
+    """管理页面"""
+    return FileResponse("static/admin.html")
 
-        sessions_info = {}
-        for session in all_sessions:
-            phone = session["phone"]
-            messages = session["messages"]
-            group_id = session.get("group_id", "")
-            group_config = GROUP_CONFIGS.get(group_id, {})
-            model = group_config.get("model", DEFAULT_GROUP_CONFIG["model"])
-            sessions_info[phone] = {
-                "message_count": len(messages),
-                "group_id": group_id,
-                "model": model,
-                "last_active": time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(session["last_active"])
-                ),
-                "active_duration": int(current_time - session["last_active"]),
-                "recent_messages": messages[-6:] if messages else [],
-            }
 
-        return {
-            "status": "success",
-            "active_sessions": len(sessions_info),
-            "sessions": sessions_info,
-            "default_model": DEFAULT_GROUP_CONFIG["model"],
-            "current_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+@app.get("/admin/api")
+async def admin_api(username: str = Depends(verify_auth)):
+    """管理页面数据接口"""
+    all_sessions = await get_all_sessions()
+    current_time = time.time()
+
+    sessions_info = {}
+    for session in all_sessions:
+        phone = session["phone"]
+        messages = session["messages"]
+        group_id = session.get("group_id", "")
+        group_config = GROUP_CONFIGS.get(group_id, {})
+        model = group_config.get("model", DEFAULT_GROUP_CONFIG["model"])
+        sessions_info[phone] = {
+            "message_count": len(messages),
+            "group_id": group_id,
+            "model": model,
+            "last_active": time.strftime(
+                "%Y-%m-%d %H:%M:%S", time.localtime(session["last_active"])
+            ),
+            "active_duration": int(current_time - session["last_active"]),
+            "recent_messages": messages[-6:] if messages else [],
         }
 
-    return FileResponse("static/admin.html")
+    return {
+        "status": "success",
+        "active_sessions": len(sessions_info),
+        "sessions": sessions_info,
+        "default_model": DEFAULT_GROUP_CONFIG["model"],
+        "current_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
 
 @app.get("/favicon.svg")
