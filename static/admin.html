@@ -205,6 +205,25 @@
             max-width: 480px;
         }
         .messages-detail.show { display: block; }
+        .msg-more-btn {
+            display: block;
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 8px;
+            border: 1px dashed #b0b0b0;
+            border-radius: 6px;
+            background: #f0f0f5;
+            color: #533483;
+            font-size: 0.82em;
+            cursor: pointer;
+            text-align: center;
+        }
+        .msg-more-btn:hover { background: #e6e6f0; }
+        .messages-older {
+            border-bottom: 1px dashed #d0d0d0;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+        }
         .msg-item {
             padding: 8px 12px;
             margin: 6px 0;
@@ -327,6 +346,18 @@ function toggleMessages(id, btn) {
     btn.classList.toggle('open');
 }
 
+function toggleOlderMessages(id, btn) {
+    const el = document.getElementById(id);
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        btn.textContent = '收起更早消息';
+    } else {
+        el.style.display = 'none';
+        btn.textContent = btn.getAttribute('data-original-text');
+    }
+}
+
+
 function renderSessions(data) {
     const sessions = data.sessions;
     const keys = Object.keys(sessions);
@@ -350,19 +381,39 @@ function renderSessions(data) {
         let msgCell = '<span class="time-info">无记录</span>';
 
         if (info.recent_messages && info.recent_messages.length > 0) {
-            let detail = '';
-            info.recent_messages.slice(-4).forEach((msg, j) => {
-                const isUser = j % 2 === 0;
+            const msgs = info.recent_messages;
+            const defaultShow = 4;
+            const hasMore = msgs.length > defaultShow;
+            const recentMsgs = hasMore ? msgs.slice(-defaultShow) : msgs;
+            const olderMsgs = hasMore ? msgs.slice(0, -defaultShow) : [];
+
+            let olderDetail = '';
+            olderMsgs.forEach(msg => {
+                const isUser = msg.role === 'user';
                 const cls = isUser ? 'msg-user' : 'msg-ai';
                 const roleLabel = isUser ? '用户' : '机器人';
                 const roleClass = isUser ? 'msg-role-user' : 'msg-role-ai';
-                detail += `<div class="msg-item ${cls}"><div class="msg-role ${roleClass}">${roleLabel}</div><div>${escapeHtml(msg.content)}</div></div>`;
+                olderDetail += `<div class="msg-item ${cls}"><div class="msg-role ${roleClass}">${roleLabel}</div><div>${escapeHtml(msg.content)}</div></div>`;
             });
+
+            let recentDetail = '';
+            recentMsgs.forEach(msg => {
+                const isUser = msg.role === 'user';
+                const cls = isUser ? 'msg-user' : 'msg-ai';
+                const roleLabel = isUser ? '用户' : '机器人';
+                const roleClass = isUser ? 'msg-role-user' : 'msg-role-ai';
+                recentDetail += `<div class="msg-item ${cls}"><div class="msg-role ${roleClass}">${roleLabel}</div><div>${escapeHtml(msg.content)}</div></div>`;
+            });
+
+            const moreBtnText = `查看更早的 ${olderMsgs.length} 条消息`;
+            const moreBtn = hasMore ? `<button class="msg-more-btn" data-original-text="${moreBtnText}" onclick="toggleOlderMessages('${msgId}-older', this)">${moreBtnText}</button>` : '';
+            const olderDiv = hasMore ? `<div class="messages-older" id="${msgId}-older" style="display:none">${olderDetail}</div>` : '';
+
             msgCell = `<button class="msg-toggle" onclick="toggleMessages('${msgId}', this)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l10 7-10 7z"/></svg>
                 查看对话
             </button>
-            <div class="messages-detail" id="${msgId}">${detail}</div>`;
+            <div class="messages-detail" id="${msgId}">${moreBtn}${olderDiv}${recentDetail}</div>`;
         }
 
         html += `<tr>

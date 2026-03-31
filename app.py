@@ -191,7 +191,7 @@ async def admin_api(username: str = Depends(verify_auth)):
                 "%Y-%m-%d %H:%M:%S", time.localtime(session["last_active"])
             ),
             "active_duration": int(current_time - session["last_active"]),
-            "recent_messages": messages[-6:] if messages else [],
+            "recent_messages": messages if messages else [],
         }
 
     return {
