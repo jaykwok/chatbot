@@ -1,27 +1,25 @@
-from functools import wraps
-from flask import request, Response
+import hmac
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from config import APP_USERNAME, APP_PASSWORD
 
-
-# API访问权限验证
-def check_auth(username, password):
-    return username == APP_USERNAME and password == APP_PASSWORD
+security = HTTPBasic()
 
 
-def authenticate():
-    return Response(
-        "error",
-        401,
-        {"WWW-Authenticate": 'Basic realm="Login Required"'},
+async def verify_auth(
+    credentials: HTTPBasicCredentials = Depends(security),
+):
+    """验证 Basic Auth（常量时间比较，防止时序攻击）"""
+    username_correct = hmac.compare_digest(
+        credentials.username.encode("utf-8"), APP_USERNAME.encode("utf-8")
     )
-
-
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
-        return f(*args, **kwargs)
-
-    return decorated
+    password_correct = hmac.compare_digest(
+        credentials.password.encode("utf-8"), APP_PASSWORD.encode("utf-8")
+    )
+    if not (username_correct and password_correct):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证失败",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username

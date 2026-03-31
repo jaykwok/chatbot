@@ -1,83 +1,203 @@
+import os
 import time
+import json
+import aiosqlite
 import logging
-from config import SESSION_TIMEOUT, MAX_WAIT_TIME
+from collections import OrderedDict
+from config import SESSION_TIMEOUT, MAX_HISTORY_MESSAGES, MAX_CACHE_SIZE, MAX_DB_SIZE_BYTES, TARGET_DB_SIZE_BYTES
 
 logger = logging.getLogger(__name__)
 
-# 用户会话管理
-user_sessions = {}
-active_requests = {}
-last_request_time = {}
+# SQLite 数据库路径
+DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+DB_PATH = os.path.join(DB_DIR, "sessions.db")
+
+# 内存 LRU 缓存
+_cache = OrderedDict()
+
+# 持久数据库连接（单 worker，复用同一连接）
+_db: aiosqlite.Connection | None = None
 
 
-def clean_expired_sessions():
-    """清理超时的会话"""
+async def _get_db():
+    """获取持久 aiosqlite 连接"""
+    global _db
+    if _db is None:
+        os.makedirs(DB_DIR, exist_ok=True)
+        _db = await aiosqlite.connect(DB_PATH, timeout=10)
+        await _db.execute("PRAGMA journal_mode=WAL")
+        await _db.execute("PRAGMA synchronous=NORMAL")
+    return _db
+
+
+async def close_db():
+    """关闭数据库连接（应用关闭时调用）"""
+    global _db
+    if _db is not None:
+        await _db.close()
+        _db = None
+
+
+async def init_db():
+    """初始化数据库表（应用启动时调用）"""
+    db = await _get_db()
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            phone TEXT PRIMARY KEY,
+            messages TEXT NOT NULL DEFAULT '[]',
+            last_active REAL NOT NULL,
+            group_id TEXT NOT NULL DEFAULT ''
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_last_active ON sessions(last_active)"
+    )
+    await db.commit()
+
+
+async def get_session(phone):
+    """获取用户会话消息列表，不存在或已过期返回空列表"""
     current_time = time.time()
-    expired_phones = []
 
-    for phone, session in user_sessions.items():
-        if current_time - session["last_active"] > SESSION_TIMEOUT:
-            expired_phones.append(phone)
+    # 先查内存缓存
+    if phone in _cache:
+        session = _cache[phone]
+        if current_time - session["last_active"] <= SESSION_TIMEOUT:
+            _cache.move_to_end(phone)
+            return list(session["messages"])
+        else:
+            del _cache[phone]
 
-    for phone in expired_phones:
-        del user_sessions[phone]
-        logger.info(f"清理超时会话: 用户 {phone}")
+    # 查 SQLite
+    db = await _get_db()
+    async with db.execute(
+        "SELECT messages, last_active FROM sessions WHERE phone = ?", (phone,)
+    ) as cursor:
+        row = await cursor.fetchone()
 
-    return len(expired_phones)
+    if row and current_time - row[1] <= SESSION_TIMEOUT:
+        messages = json.loads(row[0])
+        _cache_put(phone, messages, row[1])
+        return messages
+
+    return []
 
 
-def clean_expired_requests():
-    """清理超时的请求跟踪"""
-    from im_service import send_message_to_im
-
+async def save_session(phone, messages, group_id=""):
+    """保存用户会话（写入 SQLite + 更新缓存）"""
     current_time = time.time()
-    expired_phones = []
 
-    for phone, info in active_requests.items():
-        if current_time - info["start_time"] > MAX_WAIT_TIME + 30:
-            expired_phones.append(phone)
+    # 截断历史消息
+    if len(messages) > MAX_HISTORY_MESSAGES:
+        messages = messages[-MAX_HISTORY_MESSAGES:]
 
-            try:
-                send_message_to_im(
-                    "抱歉，您的请求处理时间超出了系统限制，已自动终止。请尝试简化您的问题。",
-                    info["group_id"],
-                    phone,
-                    info["callback_url"],
-                )
-            except Exception as e:
-                logger.error(f"发送超时通知时出错: {e}, 用户: {phone}")
+    messages_json = json.dumps(messages, ensure_ascii=False)
 
-    for phone in expired_phones:
-        logger.warning(f"清理超时请求: 用户 {phone}, 已超过 {MAX_WAIT_TIME} 秒")
-        del active_requests[phone]
+    db = await _get_db()
+    await db.execute(
+        """INSERT INTO sessions (phone, messages, last_active, group_id)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(phone) DO UPDATE SET
+               messages = excluded.messages,
+               last_active = excluded.last_active,
+               group_id = excluded.group_id""",
+        (phone, messages_json, current_time, group_id),
+    )
+    await db.commit()
 
-    return len(expired_phones)
-
-
-def is_user_rate_limited(phone):
-    """检查用户是否被频率限制"""
-    current_time = time.time()
-    if phone in last_request_time:
-        time_since_last_request = current_time - last_request_time[phone]
-        if time_since_last_request < 1.0:
-            return True, time_since_last_request
-
-    last_request_time[phone] = current_time
-    return False, 0
+    _cache_put(phone, messages, current_time, group_id)
 
 
-def has_active_request(phone):
-    """检查用户是否有正在处理的请求"""
-    if phone in active_requests:
-        elapsed_time = time.time() - active_requests[phone]["start_time"]
-        return True, elapsed_time
-    return False, 0
+async def get_all_sessions():
+    """获取所有活跃会话信息（供管理页面使用）"""
+    cutoff = time.time() - SESSION_TIMEOUT
+    db = await _get_db()
+    async with db.execute(
+        "SELECT phone, messages, last_active, group_id FROM sessions WHERE last_active > ? ORDER BY last_active DESC",
+        (cutoff,),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [
+        {
+            "phone": row[0],
+            "messages": json.loads(row[1]),
+            "last_active": row[2],
+            "group_id": row[3] if len(row) > 3 else "",
+        }
+        for row in rows
+    ]
 
 
-def reset_user_session(phone):
-    """重置用户会话"""
-    if phone in user_sessions:
-        del user_sessions[phone]
-    if phone in active_requests:
-        del active_requests[phone]
-    logger.info(f"用户 {phone} 会话已重置")
+async def get_session_count():
+    """获取活跃会话数量"""
+    cutoff = time.time() - SESSION_TIMEOUT
+    db = await _get_db()
+    async with db.execute(
+        "SELECT COUNT(*) FROM sessions WHERE last_active > ?", (cutoff,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return row[0]
+
+
+async def clean_expired_sessions():
+    """清理过期会话 + 磁盘容量控制"""
+    cutoff = time.time() - SESSION_TIMEOUT
+    db = await _get_db()
+    cleaned = 0
+
+    cursor = await db.execute(
+        "DELETE FROM sessions WHERE last_active <= ?", (cutoff,)
+    )
+    cleaned = cursor.rowcount
+    await db.commit()
+
+    # 检查磁盘容量
+    if os.path.exists(DB_PATH):
+        db_size = os.path.getsize(DB_PATH)
+        if db_size > MAX_DB_SIZE_BYTES:
+            logger.warning(
+                f"数据库大小 {db_size / 1024 / 1024:.0f}MB 超过限制，开始清理"
+            )
+            cleaned += await _shrink_db(db)
+
+    # 大量删除后回收空间
+    if cleaned > 50:
+        await db.execute("PRAGMA incremental_vacuum")
+        await db.commit()
+
+    # 清理内存缓存中的过期条目
+    expired_keys = [
+        k for k, v in _cache.items() if time.time() - v["last_active"] > SESSION_TIMEOUT
+    ]
+    for k in expired_keys:
+        del _cache[k]
+
+    if cleaned > 0:
+        logger.info(f"清理了 {cleaned} 个会话")
+    return cleaned
+
+
+async def _shrink_db(db):
+    """缩减数据库到目标大小"""
+    cleaned = 0
+    while True:
+        db_size = os.path.getsize(DB_PATH)
+        if db_size <= TARGET_DB_SIZE_BYTES:
+            break
+        cursor = await db.execute(
+            "DELETE FROM sessions WHERE phone IN "
+            "(SELECT phone FROM sessions ORDER BY last_active ASC LIMIT 100)"
+        )
+        if cursor.rowcount == 0:
+            break
+        cleaned += cursor.rowcount
+        await db.commit()
+    return cleaned
+
+
+def _cache_put(phone, messages, last_active, group_id=""):
+    """写入 LRU 缓存"""
+    _cache[phone] = {"messages": messages, "last_active": last_active, "group_id": group_id}
+    _cache.move_to_end(phone)
+    while len(_cache) > MAX_CACHE_SIZE:
+        _cache.popitem(last=False)

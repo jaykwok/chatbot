@@ -1,7 +1,6 @@
-flask
-werkzeug
-requests
+fastapi
+uvicorn[standard]
 openai
+httpx
+aiosqlite
 python-dotenv
-gunicorn
-gevent

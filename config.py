@@ -1,51 +1,61 @@
 import os
-import json
-import logging
 from dotenv import load_dotenv
 
-# 加载环境变量
 load_dotenv()
 
-# 基本配置
+# ===== 密钥 (from .env) =====
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 APP_USERNAME = os.getenv("APP_USERNAME")
 APP_PASSWORD = os.getenv("APP_PASSWORD")
-# 阿里云大模型国内版API地址
-# BASE_URL='https://dashscope.aliyuncs.com/compatible-mode/v1'
-# 阿里云大模型国际版API地址
-BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
+# 启动校验
+_required = {"DASHSCOPE_API_KEY": DASHSCOPE_API_KEY, "APP_USERNAME": APP_USERNAME, "APP_PASSWORD": APP_PASSWORD}
+_missing = [k for k, v in _required.items() if not v]
+if _missing:
+    raise RuntimeError(f"缺少必要环境变量: {', '.join(_missing)}")
 
-# 默认群组配置
+# ===== AI 服务 =====
+AI_BASE_URL = os.getenv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+AI_TIMEOUT = 60.0
+AI_MAX_RETRIES = 1
+
+# ===== IM 服务 =====
+IM_TIMEOUT = 10.0
+IM_RETRY_COUNT = 2      # 总尝试次数（首次 + 1次重试）
+IM_RETRY_DELAY = 2      # 重试间隔（秒）
+
+# ===== Webhook =====
+VALID_HOSTNAMES = {"imtwo.zdxlz.com", "im.zdxlz.com"}
+REQUIRED_WEBHOOK_FIELDS = ["type", "textMsg", "phone", "groupId", "callBackUrl"]
+DEDUP_TTL = 30           # 请求去重窗口（秒）
+
+# ===== 后台任务 =====
+CLEANUP_INTERVAL = 300   # 过期会话清理间隔（秒）
+
+# ===== 会话存储 =====
+SESSION_TIMEOUT = 1800   # 会话超时（秒，30分钟）
+MAX_HISTORY_MESSAGES = 20
+MAX_CACHE_SIZE = 100
+MAX_DB_SIZE_BYTES = 5 * 1024 * 1024 * 1024   # 5GB
+TARGET_DB_SIZE_BYTES = 4 * 1024 * 1024 * 1024  # 4GB
+
+# ===== 日志 =====
+LOG_DIR = "logs"
+LOG_FILE = "chatbot.log"
+LOG_MAX_BYTES = 5 * 1024 * 1024   # 5MB
+LOG_BACKUP_COUNT = 3
+
+# ===== 群组配置 =====
 DEFAULT_GROUP_CONFIG = {
-    "model": "qwen-plus-latest",
-    "reasoning_model": "qwen-plus-latest",
-    "system_prompt": "请简洁明了地回答问题，且不要使用Markdown等格式（如*、**等符号）来强调文本。",
+    "model": "kimi-k2.5",
+    "system_prompt": "你是聊天机器人，以纯文本形式回复用户的问题。不要使用任何格式，例如Markdown。",
 }
 
-# 超时设置
-SESSION_TIMEOUT = 1800  # 30分钟
-MAX_WAIT_TIME = 600  # 10分钟
-
-
-def load_group_configs():
-    """从配置文件加载群组配置"""
-    config_file = "./group_configs.json"
-    logger = logging.getLogger(__name__)
-    logger.info(f"尝试从 {config_file} 加载群组配置")
-
-    if os.path.exists(config_file):
-        try:
-            with open(config_file, "r", encoding="utf-8") as f:
-                configs = json.load(f)
-                logger.info(f"成功加载群组配置，共 {len(configs)} 个群组")
-                return configs
-        except Exception as e:
-            logger.error(f"加载群组配置时出错: {e}")
-
-    logger.warning("未找到群组配置文件或文件无效，使用默认配置")
-    return {}
-
-
-# 加载群组配置
-GROUP_CONFIGS = load_group_configs()
+# 从 .env 解析群组配置，格式: GROUP_CONFIGS=群组ID1:模型名1,群组ID2:模型名2
+GROUP_CONFIGS = {}
+_raw = os.getenv("GROUP_CONFIGS", "")
+for _pair in _raw.split(","):
+    _pair = _pair.strip()
+    if ":" in _pair:
+        _gid, _model = _pair.split(":", 1)
+        GROUP_CONFIGS[_gid.strip()] = {"model": _model.strip()}

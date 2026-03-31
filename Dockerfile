@@ -1,58 +1,47 @@
-# 构建阶段
-FROM python:3.9-slim AS builder
+# 构建阶段（不再需要 build-essential，无 gevent 编译）
+FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
-# 安装编译所需的依赖
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# 创建虚拟环境，隔离依赖
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# 复制需求文件并安装依赖
-# 这样可以利用 Docker 的层缓存
 COPY requirements.txt .
-# 确保 gevent 已安装
 RUN pip install --no-cache-dir -U pip && \
     pip install --no-cache-dir -r requirements.txt
 
 
-# ---- Stage 2: Final Image ----
-# 使用一个非常轻量的基础镜像
-FROM python:3.9-slim
+# ---- Final Image ----
+FROM python:3.13-slim
 
-# 创建非 root 用户和组
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -r appgroup -g 1001 && \
     useradd -r -u 1001 -g appgroup -m -d /home/appuser -s /bin/bash appuser
 
-# 设置工作目录
 WORKDIR /app
 
-# 从 builder 阶段复制已安装的虚拟环境
 COPY --from=builder /opt/venv /opt/venv
 
-# 复制应用代码
+# .dockerignore 已排除 .git/.vscode/.venv/logs/data 等
 COPY --chown=appuser:appgroup . .
 
-# 创建应用需要的目录并设置权限
-RUN mkdir -p /app/logs && \
+RUN mkdir -p /app/data /app/logs && \
     chown -R appuser:appgroup /app
 
-# 切换到非 root 用户
 USER appuser
 
-# 设置环境变量
 ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV TZ=Asia/Shanghai
 ENV PYTHONPATH=/app
 
-# 暴露端口
 EXPOSE 1011
 
-# 启动命令
-# 使用 gunicorn 配置文件来启动，并通过 wsgi.py 入口
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "wsgi:application"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:1011/favicon.ico || exit 1
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "1011", "--workers", "1", "--log-level", "warning"]
