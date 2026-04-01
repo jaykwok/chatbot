@@ -16,7 +16,7 @@ from im_service import send_message_to_im, close_client
 from auth import verify_auth
 from config import (
     GROUP_CONFIGS, DEFAULT_GROUP_CONFIG, VALID_HOSTNAMES,
-    REQUIRED_WEBHOOK_FIELDS, DEDUP_TTL, CLEANUP_INTERVAL,
+    REQUIRED_WEBHOOK_FIELDS, DEDUP_TTL, MAX_DEDUP_SIZE, CLEANUP_INTERVAL,
 )
 
 # 初始化日志
@@ -94,7 +94,7 @@ def validate_webhook_data(data: dict) -> tuple:
 def is_duplicate_request(phone: str, content: str) -> bool:
     """检查是否为重复请求（OrderedDict 按插入顺序清理过期条目）"""
     now = time.time()
-    key = f"{phone}:{hash(content)}"
+    key = f"{phone}:{content}"
 
     # 从头部弹出过期条目
     while _recent_requests:
@@ -108,6 +108,11 @@ def is_duplicate_request(phone: str, content: str) -> bool:
         return True
 
     _recent_requests[key] = now
+
+    # 容量上限保护
+    while len(_recent_requests) > MAX_DEDUP_SIZE:
+        _recent_requests.popitem(last=False)
+
     return False
 
 
@@ -127,12 +132,15 @@ async def process_request(
     except Exception as e:
         elapsed = time.time() - start_time
         logger.error(f"请求处理失败 - 用户: {phone}, 耗时: {elapsed:.2f}秒, 错误: {e}")
-        await send_message_to_im(
-            "抱歉，处理您的请求时出现了问题，请稍后再试。",
-            group_id,
-            phone,
-            callback_url,
-        )
+        try:
+            await send_message_to_im(
+                "抱歉，处理您的请求时出现了问题，请稍后再试。",
+                group_id,
+                phone,
+                callback_url,
+            )
+        except Exception as send_err:
+            logger.error(f"错误回复发送失败 - 用户: {phone}, 错误: {send_err}")
 
 
 @app.post("/webhook")

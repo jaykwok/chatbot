@@ -4,7 +4,7 @@ import json
 import aiosqlite
 import logging
 from collections import OrderedDict
-from config import SESSION_TIMEOUT, MAX_HISTORY_MESSAGES, MAX_CACHE_SIZE, MAX_DB_SIZE_BYTES, TARGET_DB_SIZE_BYTES
+from config import SESSION_TIMEOUT, MAX_HISTORY_MESSAGES, MAX_CACHE_SIZE, MAX_DB_SIZE_BYTES, TARGET_DB_SIZE_BYTES, MAX_ADMIN_SESSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ async def close_db():
 async def init_db():
     """初始化数据库表（应用启动时调用）"""
     db = await _get_db()
+    await db.execute("PRAGMA auto_vacuum=INCREMENTAL")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
             phone TEXT PRIMARY KEY,
@@ -62,7 +63,7 @@ async def get_session(phone):
     # 先查内存缓存
     if phone in _cache:
         session = _cache[phone]
-        if current_time - session["last_active"] <= SESSION_TIMEOUT:
+        if SESSION_TIMEOUT <= 0 or current_time - session["last_active"] <= SESSION_TIMEOUT:
             _cache.move_to_end(phone)
             return list(session["messages"])
         else:
@@ -75,7 +76,7 @@ async def get_session(phone):
     ) as cursor:
         row = await cursor.fetchone()
 
-    if row and current_time - row[1] <= SESSION_TIMEOUT:
+    if row and (SESSION_TIMEOUT <= 0 or current_time - row[1] <= SESSION_TIMEOUT):
         messages = json.loads(row[0])
         _cache_put(phone, messages, row[1])
         return messages
@@ -109,14 +110,21 @@ async def save_session(phone, messages, group_id=""):
 
 
 async def get_all_sessions():
-    """获取所有活跃会话信息（供管理页面使用）"""
-    cutoff = time.time() - SESSION_TIMEOUT
+    """获取所有活跃会话信息（供管理页面使用），最多返回 MAX_ADMIN_SESSIONS 条"""
     db = await _get_db()
-    async with db.execute(
-        "SELECT phone, messages, last_active, group_id FROM sessions WHERE last_active > ? ORDER BY last_active DESC",
-        (cutoff,),
-    ) as cursor:
-        rows = await cursor.fetchall()
+    if SESSION_TIMEOUT > 0:
+        cutoff = time.time() - SESSION_TIMEOUT
+        async with db.execute(
+            "SELECT phone, messages, last_active, group_id FROM sessions WHERE last_active > ? ORDER BY last_active DESC LIMIT ?",
+            (cutoff, MAX_ADMIN_SESSIONS),
+        ) as cursor:
+            rows = await cursor.fetchall()
+    else:
+        async with db.execute(
+            "SELECT phone, messages, last_active, group_id FROM sessions ORDER BY last_active DESC LIMIT ?",
+            (MAX_ADMIN_SESSIONS,),
+        ) as cursor:
+            rows = await cursor.fetchall()
     return [
         {
             "phone": row[0],
@@ -130,26 +138,32 @@ async def get_all_sessions():
 
 async def get_session_count():
     """获取活跃会话数量"""
-    cutoff = time.time() - SESSION_TIMEOUT
     db = await _get_db()
-    async with db.execute(
-        "SELECT COUNT(*) FROM sessions WHERE last_active > ?", (cutoff,)
-    ) as cursor:
-        row = await cursor.fetchone()
+    if SESSION_TIMEOUT > 0:
+        cutoff = time.time() - SESSION_TIMEOUT
+        async with db.execute(
+            "SELECT COUNT(*) FROM sessions WHERE last_active > ?", (cutoff,)
+        ) as cursor:
+            row = await cursor.fetchone()
+    else:
+        async with db.execute("SELECT COUNT(*) FROM sessions") as cursor:
+            row = await cursor.fetchone()
     return row[0]
 
 
 async def clean_expired_sessions():
     """清理过期会话 + 磁盘容量控制"""
-    cutoff = time.time() - SESSION_TIMEOUT
     db = await _get_db()
     cleaned = 0
 
-    cursor = await db.execute(
-        "DELETE FROM sessions WHERE last_active <= ?", (cutoff,)
-    )
-    cleaned = cursor.rowcount
-    await db.commit()
+    # 仅在设置了超时时间时清理过期会话
+    if SESSION_TIMEOUT > 0:
+        cutoff = time.time() - SESSION_TIMEOUT
+        cursor = await db.execute(
+            "DELETE FROM sessions WHERE last_active <= ?", (cutoff,)
+        )
+        cleaned = cursor.rowcount
+        await db.commit()
 
     # 检查磁盘容量
     if os.path.exists(DB_PATH):
@@ -166,11 +180,12 @@ async def clean_expired_sessions():
         await db.commit()
 
     # 清理内存缓存中的过期条目
-    expired_keys = [
-        k for k, v in _cache.items() if time.time() - v["last_active"] > SESSION_TIMEOUT
-    ]
-    for k in expired_keys:
-        del _cache[k]
+    if SESSION_TIMEOUT > 0:
+        expired_keys = [
+            k for k, v in _cache.items() if time.time() - v["last_active"] > SESSION_TIMEOUT
+        ]
+        for k in expired_keys:
+            del _cache[k]
 
     if cleaned > 0:
         logger.info(f"清理了 {cleaned} 个会话")
@@ -178,20 +193,29 @@ async def clean_expired_sessions():
 
 
 async def _shrink_db(db):
-    """缩减数据库到目标大小"""
-    cleaned = 0
-    while True:
-        db_size = os.path.getsize(DB_PATH)
-        if db_size <= TARGET_DB_SIZE_BYTES:
-            break
-        cursor = await db.execute(
-            "DELETE FROM sessions WHERE phone IN "
-            "(SELECT phone FROM sessions ORDER BY last_active ASC LIMIT 100)"
-        )
-        if cursor.rowcount == 0:
-            break
-        cleaned += cursor.rowcount
-        await db.commit()
+    """缩减数据库到目标大小（基于行数比例估算，避免 WAL 模式下文件大小不准确的问题）"""
+    db_size = os.path.getsize(DB_PATH)
+    if db_size <= TARGET_DB_SIZE_BYTES:
+        return 0
+
+    # 获取总行数
+    async with db.execute("SELECT COUNT(*) FROM sessions") as cursor:
+        row = await cursor.fetchone()
+    total = row[0]
+    if total == 0:
+        return 0
+
+    # 按比例估算需要删除的行数
+    ratio = 1 - TARGET_DB_SIZE_BYTES / db_size
+    delete_count = max(int(total * ratio), 100)
+
+    cursor = await db.execute(
+        "DELETE FROM sessions WHERE phone IN "
+        "(SELECT phone FROM sessions ORDER BY last_active ASC LIMIT ?)",
+        (delete_count,),
+    )
+    cleaned = cursor.rowcount
+    await db.commit()
     return cleaned
 
 

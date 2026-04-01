@@ -28,14 +28,16 @@ IM_RETRY_DELAY = 2      # 重试间隔（秒）
 VALID_HOSTNAMES = {"imtwo.zdxlz.com", "im.zdxlz.com"}
 REQUIRED_WEBHOOK_FIELDS = ["type", "textMsg", "phone", "groupId", "callBackUrl"]
 DEDUP_TTL = 30           # 请求去重窗口（秒）
+MAX_DEDUP_SIZE = 1000    # 去重字典最大容量
 
 # ===== 后台任务 =====
 CLEANUP_INTERVAL = 300   # 过期会话清理间隔（秒）
 
 # ===== 会话存储 =====
-SESSION_TIMEOUT = 1800   # 会话超时（秒，30分钟）
+SESSION_TIMEOUT = 0      # 会话超时（秒，0表示永不过期）
 MAX_HISTORY_MESSAGES = 20
 MAX_CACHE_SIZE = 100
+MAX_ADMIN_SESSIONS = 500 # 管理 API 最大返回会话数
 MAX_DB_SIZE_BYTES = 5 * 1024 * 1024 * 1024   # 5GB
 TARGET_DB_SIZE_BYTES = 4 * 1024 * 1024 * 1024  # 4GB
 
