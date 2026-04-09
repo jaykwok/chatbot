@@ -152,7 +152,7 @@ docker exec -it chatbot bash    # 进入容器 (只读，仅供排查)
 |------|------|------|------|
 | `/webhook` | POST | 无 | IM 平台 Webhook 回调入口 |
 | `/admin` | GET | Basic Auth | Web 管理页面 |
-| `/admin/api` | GET | Basic Auth | ��理页面数据接口 (JSON) |
+| `/admin/api` | GET | Basic Auth | 管理页面数据接口 (JSON) |
 
 ### Webhook 请求格式
 
